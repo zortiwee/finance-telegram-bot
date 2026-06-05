@@ -6,9 +6,9 @@
 
 ## 📖 About
 
-Finance Tracker Bot is a simple yet functional Telegram bot that helps you keep track of your personal finances. You can create named money lists, add or subtract funds, rename them, and delete them — all from within Telegram.
+Finance Tracker Bot is a Telegram bot that helps you manage personal finances directly from your phone. Create named money lists, track deposits and withdrawals, view your transaction history, and get monthly spending reports — all inside Telegram.
 
-This project was built as my **first hands-on experience** with Python, bot development, and working with databases. It covers real-world concepts like multi-step conversation flows, persistent storage, and modular project structure.
+This is my **first independent Python project**, built without courses or mentors. It covers real-world concepts like multi-step conversation flows, persistent multi-user storage, modular project architecture, and transaction logging.
 
 ---
 
@@ -22,6 +22,9 @@ This project was built as my **first hands-on experience** with Python, bot deve
 | 💸 **Take Money** | Subtract funds (with overdraft protection) |
 | ✏️ **Rename List** | Change the name of any list |
 | 🗑️ **Delete List** | Remove a list with a confirmation step |
+| 📜 **Transaction History** | View your last 10 transactions with dates |
+| 📊 **Monthly Report** | Full spending summary grouped by list for current month |
+| 👥 **Multi-user** | Each user sees only their own data |
 | 🔙 **Navigation** | Intuitive menu and sub-menu system with back button |
 
 ---
@@ -40,12 +43,39 @@ This project was built as my **first hands-on experience** with Python, bot deve
 ```
 project/
 ├── Menu/
-│   ├── bot_instance.py      # Bot initialization
-│   ├── menu_start.py        # Main menu & button handlers
-│   ├── work_file.py         # Entry point, /start command
-│   └── finance.db           # SQLite database
+│   ├── bot_instance.py       # Bot initialization (single instance)
+│   ├── menu_start.py         # Main menu, sub-menus & button handlers
+│   ├── work_file.py          # Entry point, /start command
+│   └── finance.db            # SQLite database (auto-created on first run)
 └── FinanceData/
-    └── data_finance.py      # All database logic & bot handlers
+    ├── data_finance.py       # CRUD operations for finance lists
+    ├── history.py            # Transaction history logic
+    └── reports.py            # Monthly report generation
+```
+
+---
+
+## 🗄️ Database Schema
+
+```sql
+-- Finance lists (one per user)
+CREATE TABLE finance (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id  INTEGER NOT NULL,
+    name     TEXT,
+    numbers  INTEGER
+);
+
+-- Transaction log
+CREATE TABLE history (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL,
+    list_name     TEXT,
+    operation     TEXT,
+    amount        INTEGER,
+    balance_after INTEGER,
+    date          TEXT
+);
 ```
 
 ---
@@ -70,14 +100,12 @@ project/
    pip install pyTelegramBotAPI
    ```
 
-3. **Set your bot token**
-
-   Create a `.env` file or set an environment variable:
+3. **Set your bot token as an environment variable**
    ```bash
    export BOT_TOKEN="your_token_here"
    ```
 
-   Then in `bot_instance.py`:
+   In `bot_instance.py`:
    ```python
    import os
    TOKEN = os.getenv("BOT_TOKEN")
@@ -88,6 +116,8 @@ project/
    python Menu/work_file.py
    ```
 
+> The database file `finance.db` is created automatically on first run.
+
 ---
 
 ## 📱 How It Works
@@ -96,36 +126,65 @@ project/
 /start
   └── Are you ready? → Yes
         └── Main Menu
-              ├── ➕ New List       → Enter name → Enter balance → Saved ✅
-              ├── 📋 My Lists      → Shows all lists with balances
-              ├── ✏️ Rename List   → Pick ID → Enter new name → Updated ✅
+              ├── ➕ New List         → Enter name → Enter balance → Saved ✅
+              ├── 📋 My Lists        → Shows all your lists with balances
+              ├── ✏️ Rename List     → Pick ID → Enter new name → Updated ✅
               ├── 💰 Money
               │     ├── ➕ Add Money  → Pick ID → Enter amount → Updated ✅
               │     ├── ➖ Take Money → Pick ID → Enter amount → Updated ✅
               │     └── 🔙 Back
-              └── 🗑️ Delete List   → Pick ID → Confirm → Deleted ✅
+              ├── 🗑️ Delete List     → Pick ID → Confirm → Deleted ✅
+              ├── 📜 History         → Last 10 transactions with dates
+              └── 📊 Monthly Report  → Grouped summary for current month
+```
+
+---
+
+## 📊 Monthly Report Example
+
+```
+📊 Monthly report — 06.2025
+────────────────────────────
+
+📋 Groceries
+   ➕ Added:  8000Kč
+   ➖ Taken:  5300Kč
+   📈 Net:    2700Kč
+
+📋 Rent
+   ➕ Added:  15000Kč
+   ➖ Taken:  15000Kč
+   📈 Net:    0Kč
+
+────────────────────────────
+✅ Total added:  23000Kč
+❌ Total taken:  20300Kč
+📈 Net total:    2700Kč
 ```
 
 ---
 
 ## 🌱 What I Learned
 
-- Structuring a multi-file Python project
-- Working with the `telebot` library and multi-step conversation flows (`register_next_step_handler`)
-- CRUD operations with SQLite3
-- Avoiding common bugs like duplicate bot instances across modules
-- Using lambda functions to pass arguments through conversation chains
+- Structuring a multi-file Python project from scratch
+- Working with `telebot` and multi-step conversation flows (`register_next_step_handler`)
+- CRUD operations and schema design with SQLite3
+- Fixing duplicate bot instances across modules (single import pattern)
+- Passing arguments through conversation chains using lambda functions
+- Per-user data isolation with `user_id` filtering
+- Transaction logging and report generation
 - Version control with Git and GitHub
+- Debugging stack traces independently
 
 ---
 
 ## 🔮 Future Plans
 
-- [ ] Add per-user data (currently all users share the same database)
-- [ ] Add transaction history / spending log
-- [ ] Monthly summary reports
-- [ ] Currency selection support
-- [ ] Deploy to a cloud server (e.g. Railway, VPS)
+- [ ] Deploy to a cloud server (Railway) for 24/7 uptime
+- [ ] Migrate from SQLite to PostgreSQL for production
+- [ ] Add per-category spending limits and alerts
+- [ ] Export monthly report as PDF or CSV
+- [ ] Support multiple currencies
 
 ---
 
