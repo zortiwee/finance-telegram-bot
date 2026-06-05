@@ -1,6 +1,8 @@
 import sqlite3
 from csv import excel
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from telebot.util import user_link
+
 from Menu.bot_instance import bot
 
 # IMPORTANT COMMENTS
@@ -17,6 +19,7 @@ def database_init():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS finance (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
     name TEXT,
     numbers INTEGER
     )""")
@@ -42,13 +45,16 @@ def get_list_name(message):
 def save_list(message, name):
     try:
         balance = int(message.text)
+        user_id = message.from_user.id
 
         data_base = sqlite3.connect('../Menu/finance.db')
         cursor = data_base.cursor()
 
+        # ✅ Стало:
         cursor.execute(
-            "INSERT INTO finance (name, numbers) VALUES (?, ?)",(name, balance)
-         )
+            "INSERT INTO finance (user_id, name, numbers) VALUES (?, ?, ?)",
+            (user_id, name, balance)
+        )
 
         bot.send_message(message.chat.id, f"List {name} created with balance {balance} Kč")
         data_base.commit()
@@ -59,25 +65,24 @@ def save_list(message, name):
         bot.send_message(message.chat.id,"‼️Please enter a valid number")
 
 
-
 def callback(message):
-
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
 
-    cursor.execute('SELECT * FROM finance')
+    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
     all_lists = cursor.fetchall()
 
     if not all_lists:
-        bot.send_message(message.chat.id,"No lists found")
+        bot.send_message(message.chat.id, "No lists found")
+        cursor.close()
+        data_base.close()
         return
 
-    info = ""
+    info = "Your lists:\n"
     for element in all_lists:
-        info += f"Name: {element[1]}, amount: {element[2]}Kč\n"
+        info += f"ID: {element[0]} | Name: {element[2]} | Balance: {element[3]}Kč\n"
 
     bot.send_message(message.chat.id, info)
-
     cursor.close()
     data_base.close()
 
@@ -85,7 +90,7 @@ def get_list_to_edit(message):
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
 
-    cursor.execute('SELECT * FROM finance')
+    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
 
     all_lists = cursor.fetchall()
     cursor.close()
@@ -97,7 +102,7 @@ def get_list_to_edit(message):
 
     info = "Your lists:\n"
     for element in all_lists:
-        info += f"ID: {element[0]}, Name: {element[1]}, Amount: {element[2]}\n"
+        info += f"ID: {element[0]}, Name: {element[2]}, Amount: {element[3]}\n"
 
     msg = bot.send_message(message.chat.id, info + "\n‼️Enter ID of the list that you want to edit")
     bot.register_next_step_handler(msg, get_new_name)
@@ -108,7 +113,7 @@ def get_new_name(message):
 
         data_base = sqlite3.connect('../Menu/finance.db')
         cursor = data_base.cursor()
-        cursor.execute('SELECT * FROM finance WHERE id = ?', (list_id,))
+        cursor.execute('SELECT * FROM finance WHERE id = ? AND user_id = ?', (list_id,message.from_user.id))
         found = cursor.fetchone()
         cursor.close()
         data_base.close()
@@ -117,7 +122,7 @@ def get_new_name(message):
             bot.send_message(message.chat.id,"List with this ID doesn't exist")
             return
 
-        msg = bot.send_message(message.chat.id, f"Name: {found[1]}, Enter new name: \n")
+        msg = bot.send_message(message.chat.id, f"Name: {found[2]}, Enter new name:")
         bot.register_next_step_handler(msg,lambda m: save_edited_name(m, list_id))
 
     except ValueError:
@@ -128,7 +133,7 @@ def save_edited_name(message, list_id):
 
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
-    cursor.execute("UPDATE finance SET name = ? WHERE id = ?", (new_name, list_id))
+    cursor.execute("UPDATE finance SET name = ? WHERE id = ? AND user_id = ?", (new_name, list_id, message.from_user.id))
     data_base.commit()
     cursor.close()
     data_base.close()
@@ -139,7 +144,7 @@ def save_edited_name(message, list_id):
 def get_list_to_add_money(message):
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
-    cursor.execute('SELECT * FROM finance')
+    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
     all_lists = cursor.fetchall()
     cursor.close()
     data_base.close()
@@ -160,7 +165,7 @@ def get_list_to_add_money(message):
 def get_list_to_take_money(message):
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
-    cursor.execute('SELECT * FROM finance')
+    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
     all_lists = cursor.fetchall()
     cursor.close()
     data_base.close()
@@ -184,8 +189,8 @@ def get_amount_to_change(message, operation):
 
         data_base = sqlite3.connect('../Menu/finance.db')
         cursor = data_base.cursor()
-        cursor.execute('SELECT * FROM finance WHERE id = ?', (list_id,))
-        found = cursor.fetchone()  # ✅ found живёт здесь и передаётся дальше
+        cursor.execute('SELECT * FROM finance WHERE id = ? AND user_id = ?', (list_id, message.from_user.id))
+        found = cursor.fetchone()
         cursor.close()
         data_base.close()
 
@@ -196,7 +201,7 @@ def get_amount_to_change(message, operation):
         action = "add to" if operation == "add" else "take from"
         msg = bot.send_message(
             message.chat.id,
-            f"Current balance: {found[2]}Kč\nHow much to {action} the list?"
+            f"Current balance: {found[3]}Kč\nHow much to {action} the list?"
         )
         # ✅ и list_id и operation передаются через lambda
         bot.register_next_step_handler(msg, lambda m: update_balance(m, list_id, operation))
@@ -211,7 +216,7 @@ def update_balance(message, list_id, operation):
 
         data_base = sqlite3.connect('../Menu/finance.db')
         cursor = data_base.cursor()
-        cursor.execute('SELECT numbers FROM finance WHERE id = ?', (list_id,))
+        cursor.execute('SELECT numbers FROM finance WHERE id = ? AND user_id = ?', (list_id, message.from_user.id))
         current = cursor.fetchone()[0]
 
         if operation == "add":
@@ -224,7 +229,7 @@ def update_balance(message, list_id, operation):
                 return
             new_balance = current - amount
 
-        cursor.execute("UPDATE finance SET numbers = ? WHERE id = ?", (new_balance, list_id))
+        cursor.execute("UPDATE finance SET numbers = ? WHERE id = ? AND user_id = ?", (new_balance, list_id, message.from_user.id))
         data_base.commit()
         cursor.close()
         data_base.close()
@@ -239,7 +244,9 @@ def update_balance(message, list_id, operation):
 def get_list_to_delete(message):
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
-    cursor.execute('SELECT * FROM finance')
+
+    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
+
     all_lists = cursor.fetchall()
     cursor.close()
     data_base.close()
@@ -262,7 +269,7 @@ def confirm_delete(message):
 
         data_base = sqlite3.connect('../Menu/finance.db')
         cursor = data_base.cursor()
-        cursor.execute('SELECT * FROM finance WHERE id = ?', (list_id,))
+        cursor.execute('SELECT * FROM finance WHERE id = ? AND user_id = ?', (list_id, message.from_user.id))
         found = cursor.fetchone()
         cursor.close()
         data_base.close()
@@ -280,7 +287,7 @@ def confirm_delete(message):
 
         msg = bot.send_message(
             message.chat.id,
-            f"Are you sure you want to delete:\n📋 {found[1]} | {found[2]}Kč?",
+            f"Are you sure you want to delete:\n📋 {found[2]} | {found[3]}Kč?",
             reply_markup=markup
         )
         bot.register_next_step_handler(msg, lambda m: delete_list(m, list_id))
@@ -293,7 +300,7 @@ def delete_list(message, list_id):
     if message.text == "✅ Yes, delete":
         data_base = sqlite3.connect('../Menu/finance.db')
         cursor = data_base.cursor()
-        cursor.execute("DELETE FROM finance WHERE id = ?", (list_id,))
+        cursor.execute("DELETE FROM finance WHERE id = ? AND user_id = ?", (list_id, message.from_user.id))
         data_base.commit()
         cursor.close()
         data_base.close()
