@@ -2,7 +2,7 @@ import sqlite3
 from csv import excel
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 from telebot.util import user_link
-
+from FinanceData.history import add_to_history, history_init
 from Menu.bot_instance import bot
 
 # IMPORTANT COMMENTS
@@ -12,7 +12,7 @@ from Menu.bot_instance import bot
 
 
 def database_init():
-
+    history_init()
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
 
@@ -155,7 +155,7 @@ def get_list_to_add_money(message):
 
     info = "Your lists:\n"
     for element in all_lists:
-        info += f"ID: {element[0]} | Name: {element[1]} | Balance: {element[2]}Kč\n"
+        info += f"ID: {element[0]} | Name: {element[2]} | Balance: {element[3]}Kč\n"
 
     msg = bot.send_message(message.chat.id, info + "‼\n‼️Enter ID of the list:")
     # ✅ operation передаётся сразу здесь
@@ -176,7 +176,7 @@ def get_list_to_take_money(message):
 
     info = "Your lists:\n"
     for element in all_lists:
-        info += f"ID: {element[0]} | Name: {element[1]} | Balance: {element[2]}Kč\n"
+        info += f"ID: {element[0]} | Name: {element[2]} | Balance: {element[3]}Kč\n"
 
     msg = bot.send_message(message.chat.id, info + "️\n‼️Enter ID of the list:")
     # ✅ operation передаётся сразу здесь
@@ -231,6 +231,11 @@ def update_balance(message, list_id, operation):
 
         cursor.execute("UPDATE finance SET numbers = ? WHERE id = ? AND user_id = ?", (new_balance, list_id, message.from_user.id))
         data_base.commit()
+
+        cursor.execute("SELECT name FROM finance WHERE id = ?", (list_id,))
+        list_name = cursor.fetchone()[0]
+        add_to_history(message.from_user.id, list_name, operation, amount, new_balance)
+
         cursor.close()
         data_base.close()
 

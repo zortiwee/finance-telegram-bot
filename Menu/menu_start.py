@@ -1,6 +1,9 @@
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 from FinanceData.data_finance import get_list_name_start, callback, get_list_to_edit, get_list_to_add_money, get_list_to_take_money,get_list_to_delete
+from FinanceData.history import show_history
+from FinanceData.reports import show_monthly_report
 from Menu.bot_instance import bot
+
 
 def show_start_menu(message):
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -10,7 +13,9 @@ def show_start_menu(message):
         KeyboardButton("📋 My Lists"),
         KeyboardButton("✏️ Rename List"),
         KeyboardButton("💰 Money"),
-        KeyboardButton("🗑️ Delete List")
+        KeyboardButton("🗑️ Delete List"),
+        KeyboardButton("📜 History"),
+        KeyboardButton("📊 Monthly Report")
     )
 
     bot.send_message(message.chat.id, "What are we going to work with?", reply_markup=markup)
@@ -30,7 +35,8 @@ def show_money_menu(message):
 
 @bot.message_handler(func=lambda message: message.text in [
     "➕ New List", "📋 My Lists", "✏️ Rename List", "💰 Money",
-    "➕ Add Money", "➖ Take Money", "🔙 Back","🗑️ Delete List"
+    "➕ Add Money", "➖ Take Money", "🔙 Back","🗑️ Delete List",
+    "📜 History", "📊 Monthly Report"
 ])
 def handle_buttons(message):
     if message.text == "➕ New List":
@@ -49,3 +55,7 @@ def handle_buttons(message):
         show_start_menu(message)
     elif message.text == "🗑️ Delete List":
         get_list_to_delete(message)
+    elif message.text == "📜 History":
+        show_history(message)
+    elif message.text == "📊 Monthly Report":
+        show_monthly_report(message)
