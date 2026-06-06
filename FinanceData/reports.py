@@ -1,23 +1,13 @@
-import sqlite3
 from datetime import datetime
 from Menu.bot_instance import bot
+from FinanceData.FinanceDB import FinanceDB
+
+db = FinanceDB('../Menu/finance.db')
 
 def show_monthly_report(message):
-    current_month = datetime.now().strftime("%m.%Y")
 
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
-
-    cursor.execute("""
-    SELECT list_name, operation, amount
-    FROM history
-    WHERE user_id = ? AND date LIKE ?
-    ORDER BY list_name
-    """, (message.from_user.id, f"%.{current_month}%"))
-
-    rows = cursor.fetchall()
-    cursor.close()
-    data_base.close()
+    rows = db.get_monthly_data(message.from_user.id)
+    current_month = datetime.today().strftime("%m.%Y")
 
     if not rows:
         bot.send_message(message.chat.id, f"NO transaction in {current_month}")

@@ -1,8 +1,13 @@
 import sqlite3
+from datetime import datetime
+
+# class for data base
 
 class FinanceDB:
     def __init__(self, db_path):
         self.db_path = db_path
+
+#------------DATA-FINANCE file---------------
 
     def get_lists(self, user_id):
         data_base = sqlite3.connect(self.db_path)
@@ -62,3 +67,63 @@ class FinanceDB:
         data_base.commit()
         cursor.close()
         data_base.close()
+
+        # --- HISTORY ---
+    def history_initialization(self):
+        data_base = sqlite3.connect(self.db_path)
+        cursor = data_base.cursor()
+        cursor.execute("""CREATE TABLE IF NOT EXISTS history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            list_name TEXT,
+            operation TEXT,
+            amount INTEGER,
+            balance_after INTETEGR,
+            balance_after INTEGER,
+            date TEXT
+            )""")
+
+        data_base.commit()
+        cursor.close()
+        data_base.close()
+
+    def add_to_history(self, user_id, list_name, operation, amount, balance_after):
+        data_base = sqlite3.connect(self.db_path)
+        cursor = data_base.cursor()
+        cursor.execute("""
+            INSERT INTO history (user_id, list_name, operation, amount, balance_after, date)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (user_id, list_name, operation, amount, balance_after, datetime.now().strftime("%d.%m.%Y %H:%M")))
+
+        data_base.commit()
+        cursor.close()
+        data_base.close()
+
+    def get_history(self, user_id):
+        data_base = sqlite3.connect(self.db_path)
+        cursor = data_base.cursor()
+        cursor.execute("""
+             SELECT list_name, operation, amount, balance_after, date
+             FROM history
+             WHERE user_id = ?
+             ORDER BY id DESC LIMIT 10
+             """, (user_id,))
+        rows = cursor.fetchall()
+        cursor.close()
+        data_base.close()
+        return rows
+
+        # --- REPORTS ---
+    def get_monthly_data(self, user_id):
+        current_month = datetime.now().strftime("%m.%Y")
+        data_base = sqlite3.connect(self.db_path)
+        cursor = data_base.cursor()
+        cursor.execute("""
+            SELECT list_name, operation, amount
+            FROM history
+            WHERE user_id = ? AND date LIKE ?
+            """, (user_id, f"%.{current_month}%"))
+        rows = cursor.fetchall()
+        cursor.close()
+        data_base.close()
+        return rows

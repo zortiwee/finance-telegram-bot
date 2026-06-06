@@ -1,6 +1,5 @@
 import sqlite3
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-from FinanceData.history import add_to_history, history_init
 from Menu.bot_instance import bot
 from FinanceData.FinanceDB import FinanceDB
 
@@ -9,12 +8,9 @@ from FinanceData.FinanceDB import FinanceDB
 # it can be a little bit messy but you can understand role of the function by it name
 # dataBase file will appear automatically after bots first run
 
-
-
 db = FinanceDB('../Menu/finance.db')
 
 def database_init():
-    history_init()
     data_base = sqlite3.connect('../Menu/finance.db')
     cursor = data_base.cursor()
 
@@ -29,6 +25,8 @@ def database_init():
     data_base.commit()
     cursor.close()
     data_base.close()
+
+    db.history_initialization()
 
 def get_list_name_start(message):
     msg = bot.send_message(message.chat.id,"Enter name of new list")

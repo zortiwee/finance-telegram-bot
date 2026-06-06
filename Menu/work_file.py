@@ -6,8 +6,6 @@ from Menu.bot_instance import bot
 #IMPORTANT COMMENTS
 #this is the main file to run your bot because here you have bot.infinity_polling()
 
-
-
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
     print("BOT ID = ", id(bot))
