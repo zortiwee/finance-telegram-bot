@@ -1,15 +1,17 @@
 import sqlite3
-from csv import excel
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-from telebot.util import user_link
 from FinanceData.history import add_to_history, history_init
 from Menu.bot_instance import bot
+from FinanceData.FinanceDB import FinanceDB
 
 # IMPORTANT COMMENTS
 # this file has all the functions for all the buttons and your sqlite dataBase
 # it can be a little bit messy but you can understand role of the function by it name
 # dataBase file will appear automatically after bots first run
 
+
+
+db = FinanceDB('../Menu/finance.db')
 
 def database_init():
     history_init()
@@ -47,54 +49,29 @@ def save_list(message, name):
         balance = int(message.text)
         user_id = message.from_user.id
 
-        data_base = sqlite3.connect('../Menu/finance.db')
-        cursor = data_base.cursor()
-
-        # ✅ Стало:
-        cursor.execute(
-            "INSERT INTO finance (user_id, name, numbers) VALUES (?, ?, ?)",
-            (user_id, name, balance)
-        )
+        db.save_list(user_id, name, balance)
 
         bot.send_message(message.chat.id, f"List {name} created with balance {balance} Kč")
-        data_base.commit()
-        cursor.close()
-        data_base.close()
 
     except ValueError:
         bot.send_message(message.chat.id,"‼️Please enter a valid number")
 
-
 def callback(message):
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
 
-    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
-    all_lists = cursor.fetchall()
+    lists = db.get_lists(message.from_user.id)
 
-    if not all_lists:
+    if not lists:
         bot.send_message(message.chat.id, "No lists found")
-        cursor.close()
-        data_base.close()
         return
 
     info = "Your lists:\n"
-    for element in all_lists:
+    for element in lists:
         info += f"ID: {element[0]} | Name: {element[2]} | Balance: {element[3]}Kč\n"
 
     bot.send_message(message.chat.id, info)
-    cursor.close()
-    data_base.close()
 
 def get_list_to_edit(message):
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
-
-    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
-
-    all_lists = cursor.fetchall()
-    cursor.close()
-    data_base.close()
+    all_lists = db.get_lists(message.from_user.id)
 
     if not all_lists:
         bot.send_message(message.chat.id,"No lists found")
@@ -111,12 +88,7 @@ def get_new_name(message):
     try:
         list_id = int(message.text)
 
-        data_base = sqlite3.connect('../Menu/finance.db')
-        cursor = data_base.cursor()
-        cursor.execute('SELECT * FROM finance WHERE id = ? AND user_id = ?', (list_id,message.from_user.id))
-        found = cursor.fetchone()
-        cursor.close()
-        data_base.close()
+        found = db.get_list_by_id(message.from_user.id, list_id)
 
         if not found:
             bot.send_message(message.chat.id,"List with this ID doesn't exist")
@@ -130,24 +102,13 @@ def get_new_name(message):
 
 def save_edited_name(message, list_id):
     new_name = message.text
-
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
-    cursor.execute("UPDATE finance SET name = ? WHERE id = ? AND user_id = ?", (new_name, list_id, message.from_user.id))
-    data_base.commit()
-    cursor.close()
-    data_base.close()
-
-    bot.send_message(message.chat.id, f"Name updated successfully")
+    db.update_list(message.from_user.id, list_id, name=new_name)
+    bot.send_message(message.chat.id, "✅ Name updated!")
 
 
 def get_list_to_add_money(message):
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
-    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
-    all_lists = cursor.fetchall()
-    cursor.close()
-    data_base.close()
+
+    all_lists = db.get_lists(message.from_user.id)
 
     if not all_lists:
         bot.send_message(message.chat.id, "No lists found")
@@ -158,17 +119,12 @@ def get_list_to_add_money(message):
         info += f"ID: {element[0]} | Name: {element[2]} | Balance: {element[3]}Kč\n"
 
     msg = bot.send_message(message.chat.id, info + "‼\n‼️Enter ID of the list:")
-    # ✅ operation передаётся сразу здесь
     bot.register_next_step_handler(msg, lambda m: get_amount_to_change(m, "add"))
 
 
 def get_list_to_take_money(message):
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
-    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
-    all_lists = cursor.fetchall()
-    cursor.close()
-    data_base.close()
+
+    all_lists = db.get_lists(message.from_user.id)
 
     if not all_lists:
         bot.send_message(message.chat.id, "No lists found")
@@ -187,12 +143,7 @@ def get_amount_to_change(message, operation):
     try:
         list_id = int(message.text)
 
-        data_base = sqlite3.connect('../Menu/finance.db')
-        cursor = data_base.cursor()
-        cursor.execute('SELECT * FROM finance WHERE id = ? AND user_id = ?', (list_id, message.from_user.id))
-        found = cursor.fetchone()
-        cursor.close()
-        data_base.close()
+        found = db.get_list_by_id(message.from_user.id, list_id)
 
         if not found:
             bot.send_message(message.chat.id, "‼️List with this ID not found")
@@ -213,48 +164,28 @@ def get_amount_to_change(message, operation):
 def update_balance(message, list_id, operation):
     try:
         amount = int(message.text)
-
-        data_base = sqlite3.connect('../Menu/finance.db')
-        cursor = data_base.cursor()
-        cursor.execute('SELECT numbers FROM finance WHERE id = ? AND user_id = ?', (list_id, message.from_user.id))
-        current = cursor.fetchone()[0]
+        found = db.get_list_by_id(message.from_user.id, list_id)
+        current = found[3]
 
         if operation == "add":
             new_balance = current + amount
         else:
             if amount > current:
-                bot.send_message(message.chat.id, f"❌ Not enough money! Current balance: {current}Kč")
-                cursor.close()
-                data_base.close()
+                bot.send_message(message.chat.id, f"❌ Not enough money! Current: {current}Kč")
                 return
             new_balance = current - amount
 
-        cursor.execute("UPDATE finance SET numbers = ? WHERE id = ? AND user_id = ?", (new_balance, list_id, message.from_user.id))
-        data_base.commit()
-
-        cursor.execute("SELECT name FROM finance WHERE id = ?", (list_id,))
-        list_name = cursor.fetchone()[0]
-        add_to_history(message.from_user.id, list_name, operation, amount, new_balance)
-
-        cursor.close()
-        data_base.close()
-
+        db.update_list(message.from_user.id, list_id, balance=new_balance)
         emoji = "➕" if operation == "add" else "➖"
         bot.send_message(message.chat.id, f"{emoji} Done! New balance: {new_balance}Kč")
 
     except ValueError:
-        bot.send_message(message.chat.id, "Please enter a valid number")
+        bot.send_message(message.chat.id, "‼️Please enter a valid number")
 
 
 def get_list_to_delete(message):
-    data_base = sqlite3.connect('../Menu/finance.db')
-    cursor = data_base.cursor()
 
-    cursor.execute('SELECT * FROM finance WHERE user_id = ?', (message.from_user.id,))
-
-    all_lists = cursor.fetchall()
-    cursor.close()
-    data_base.close()
+    all_lists = db.get_lists(message.from_user.id)
 
     if not all_lists:
         bot.send_message(message.chat.id, "No lists found")
@@ -262,7 +193,7 @@ def get_list_to_delete(message):
 
     info = "Your lists:\n"
     for element in all_lists:
-        info += f"ID: {element[0]} | Name: {element[1]} | Balance: {element[2]}Kč\n"
+        info += f"ID: {element[0]} | Name: {element[2]} | Balance: {element[3]}Kč\n"
 
     msg = bot.send_message(message.chat.id, info + "\n‼️Enter ID of the list to delete‼:")
     bot.register_next_step_handler(msg, confirm_delete)
@@ -272,12 +203,7 @@ def confirm_delete(message):
     try:
         list_id = int(message.text)
 
-        data_base = sqlite3.connect('../Menu/finance.db')
-        cursor = data_base.cursor()
-        cursor.execute('SELECT * FROM finance WHERE id = ? AND user_id = ?', (list_id, message.from_user.id))
-        found = cursor.fetchone()
-        cursor.close()
-        data_base.close()
+        found = db.get_list_by_id(message.from_user.id, list_id)
 
         if not found:
             bot.send_message(message.chat.id, "List with this ID not found")
@@ -303,18 +229,13 @@ def confirm_delete(message):
 
 def delete_list(message, list_id):
     if message.text == "✅ Yes, delete":
-        data_base = sqlite3.connect('../Menu/finance.db')
-        cursor = data_base.cursor()
-        cursor.execute("DELETE FROM finance WHERE id = ? AND user_id = ?", (list_id, message.from_user.id))
-        data_base.commit()
-        cursor.close()
-        data_base.close()
+
+        db.delete_list(message.from_user.id, list_id)
 
         bot.send_message(message.chat.id, "🗑️ List deleted!")
 
     elif message.text == "❌ Cancel":
         bot.send_message(message.chat.id, "Cancelled.")
 
-    # Возвращаем главное меню после любого выбора
     from Menu.menu_start import show_start_menu
     show_start_menu(message)
