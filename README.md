@@ -8,7 +8,7 @@
 
 Finance Tracker Bot is a Telegram bot that helps you manage personal finances directly from your phone. Create named money lists, track deposits and withdrawals, view your transaction history, and get monthly spending reports — all inside Telegram.
 
-This is my **first independent Python project**, built without courses or mentors. It covers real-world concepts like multi-step conversation flows, persistent multi-user storage, modular project architecture, and transaction logging.
+This is my **first independent Python project**, built without courses or mentors. Throughout development I learned how to structure a real multi-file project, work with databases, apply OOP principles, and debug real errors independently.
 
 ---
 
@@ -48,8 +48,9 @@ project/
 │   ├── work_file.py          # Entry point, /start command
 │   └── finance.db            # SQLite database (auto-created on first run)
 └── FinanceData/
-    ├── data_finance.py       # CRUD operations for finance lists
-    ├── history.py            # Transaction history logic
+    ├── FinanceDB.py          # FinanceDB class — all database logic
+    ├── data_finance.py       # Bot handlers for all buttons
+    ├── history.py            # Transaction history display
     └── reports.py            # Monthly report generation
 ```
 
@@ -58,7 +59,7 @@ project/
 ## 🗄️ Database Schema
 
 ```sql
--- Finance lists (one per user)
+-- Finance lists
 CREATE TABLE finance (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id  INTEGER NOT NULL,
@@ -77,6 +78,21 @@ CREATE TABLE history (
     date          TEXT
 );
 ```
+
+---
+
+## 🏗️ Architecture
+
+The project follows a clean separation of responsibilities:
+
+```
+FinanceDB.py      — database only, no Telegram logic
+data_finance.py   — button handlers, no direct DB queries
+history.py        — displays transaction history via bot
+reports.py        — displays monthly reports via bot
+```
+
+The `FinanceDB` class handles all SQLite operations and is used as a single shared instance across the project — preventing duplicate connections and keeping the code clean.
 
 ---
 
@@ -167,14 +183,15 @@ CREATE TABLE history (
 ## 🌱 What I Learned
 
 - Structuring a multi-file Python project from scratch
+- OOP — designing a class with single responsibility
 - Working with `telebot` and multi-step conversation flows (`register_next_step_handler`)
 - CRUD operations and schema design with SQLite3
 - Fixing duplicate bot instances across modules (single import pattern)
 - Passing arguments through conversation chains using lambda functions
 - Per-user data isolation with `user_id` filtering
-- Transaction logging and report generation
-- Version control with Git and GitHub
+- Transaction logging and monthly report generation
 - Debugging stack traces independently
+- Version control with Git and GitHub
 
 ---
 
