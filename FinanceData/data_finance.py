@@ -9,6 +9,7 @@ from FinanceData.FinanceDB import FinanceDB
 # dataBase file will appear automatically after bots first run
 
 db = FinanceDB('../Menu/finance.db')
+MAX_BALANCE = 10_000_000
 
 def database_init():
     data_base = sqlite3.connect('../Menu/finance.db')
@@ -43,16 +44,23 @@ def get_list_name(message):
 
 
 def save_list(message, name):
+    if len(name) > 50:
+        bot.send_message(message.chat.id, "❌ Name too long, max 50 characters")
+        return
+
     try:
-        balance = int(message.text)
+        balance = int(message.text)  # ← один раз
+
+        if balance < 0 or balance > MAX_BALANCE:
+            bot.send_message(message.chat.id, "❌ Invalid amount, max 10 000 000")
+            return
+
         user_id = message.from_user.id
-
         db.save_list(user_id, name, balance)
-
-        bot.send_message(message.chat.id, f"List {name} created with balance {balance} Kč")
+        bot.send_message(message.chat.id, f"✅ List {name} created with balance {balance} Kč")
 
     except ValueError:
-        bot.send_message(message.chat.id,"‼️Please enter a valid number")
+        bot.send_message(message.chat.id, "‼️Please enter a valid number")
 
 def callback(message):
 
