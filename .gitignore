@@ -35,7 +35,6 @@ dist/
 
 # dotenv environment variable files
 .env
-*.db
 
 # Virtual environments
 .venv
